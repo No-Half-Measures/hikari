@@ -2214,6 +2214,9 @@ class RESTClient(traits.NetworkSettingsAware, abc.ABC):
         token: str,
         content: undefined.UndefinedOr[typing.Any] = undefined.UNDEFINED,
         *,
+        thread: typing.Union[
+            undefined.UndefinedType, snowflakes.SnowflakeishOr[channels_.GuildThreadChannel]
+        ] = undefined.UNDEFINED,
         username: undefined.UndefinedOr[str] = undefined.UNDEFINED,
         avatar_url: typing.Union[undefined.UndefinedType, str, files.URL] = undefined.UNDEFINED,
         attachment: undefined.UndefinedOr[files.Resourceish] = undefined.UNDEFINED,
@@ -2258,6 +2261,12 @@ class RESTClient(traits.NetworkSettingsAware, abc.ABC):
 
         Other Parameters
         ----------------
+        thread : hikari.undefined.UndefinedOr[hikari.snowflakes.SnowflakeishOr[hikari.channels.GuildThreadChannel]]
+            If provided then the message will be created in the target thread
+            within the webhook's channel, otherwise it it will be created in
+            the webhook's target channel.
+
+            This is required when trying to create a thread message.
         username : hikari.undefined.UndefinedOr[builtins.str]
             If provided, the username to override the webhook's username
             for this request.
@@ -2391,6 +2400,10 @@ class RESTClient(traits.NetworkSettingsAware, abc.ABC):
         webhook: typing.Union[webhooks.ExecutableWebhook, snowflakes.Snowflakeish],
         token: str,
         message: snowflakes.SnowflakeishOr[messages_.PartialMessage],
+        *,
+        thread: typing.Union[
+            undefined.UndefinedType, snowflakes.SnowflakeishOr[channels_.GuildThreadChannel]
+        ] = undefined.UNDEFINED,
     ) -> messages_.Message:
         """Fetch an old message sent by the webhook.
 
@@ -2404,6 +2417,15 @@ class RESTClient(traits.NetworkSettingsAware, abc.ABC):
         message : hikari.snowflakes.SnowflakeishOr[hikari.messages.PartialMessage]
             The message to fetch. This may be the object or the ID of an
             existing channel.
+
+        Other Parameters
+        ----------------
+        thread : hikari.undefined.UndefinedOr[hikari.snowflakes.SnowflakeishOr[hikari.channels.GuildThreadChannel]]
+            If provided then the message will be fetched from the target thread
+            within the webhook's channel, otherwise it it will be fetched from
+            the webhook's target channel.
+
+            This is required when trying to fetch a thread message.
 
         Returns
         -------
@@ -2440,6 +2462,9 @@ class RESTClient(traits.NetworkSettingsAware, abc.ABC):
         message: snowflakes.SnowflakeishOr[messages_.Message],
         content: undefined.UndefinedNoneOr[typing.Any] = undefined.UNDEFINED,
         *,
+        thread: typing.Union[
+            undefined.UndefinedType, snowflakes.SnowflakeishOr[channels_.GuildThreadChannel]
+        ] = undefined.UNDEFINED,
         attachment: undefined.UndefinedOr[files.Resourceish] = undefined.UNDEFINED,
         attachments: undefined.UndefinedOr[typing.Sequence[files.Resourceish]] = undefined.UNDEFINED,
         component: undefined.UndefinedNoneOr[special_endpoints.ComponentBuilder] = undefined.UNDEFINED,
@@ -2485,6 +2510,12 @@ class RESTClient(traits.NetworkSettingsAware, abc.ABC):
 
         Other Parameters
         ----------------
+        thread : hikari.undefined.UndefinedOr[hikari.snowflakes.SnowflakeishOr[hikari.channels.GuildThreadChannel]]
+            If provided then the message will be edited in the target thread
+            within the webhook's channel, otherwise it it will be edited in
+            the webhook's target channel.
+
+            This is required when trying to edit a thread message.
         attachment : hikari.undefined.UndefinedOr[hikari.files.Resourceish]
             If provided, the attachment to set on the message. If
             `hikari.undefined.UNDEFINED`, the previous attachment, if
@@ -2613,6 +2644,10 @@ class RESTClient(traits.NetworkSettingsAware, abc.ABC):
         webhook: typing.Union[webhooks.ExecutableWebhook, snowflakes.Snowflakeish],
         token: str,
         message: snowflakes.SnowflakeishOr[messages_.Message],
+        *,
+        thread: typing.Union[
+            undefined.UndefinedType, snowflakes.SnowflakeishOr[channels_.GuildThreadChannel]
+        ] = undefined.UNDEFINED,
     ) -> None:
         """Delete a given message in a given channel.
 
@@ -2626,6 +2661,15 @@ class RESTClient(traits.NetworkSettingsAware, abc.ABC):
         message : hikari.snowflakes.SnowflakeishOr[hikari.messages.PartialMessage]
             The message to delete. This may be the object or the ID of
             an existing message.
+
+        Other Parameters
+        ----------------
+        thread : hikari.undefined.UndefinedOr[hikari.snowflakes.SnowflakeishOr[hikari.channels.GuildThreadChannel]]
+            If provided then the message will be deleted from the target thread
+            within the webhook's channel, otherwise it it will be deleted from
+            the webhook's target channel.
+
+            This is required when trying to delete a thread message.
 
         Raises
         ------
@@ -4812,25 +4856,42 @@ class RESTClient(traits.NetworkSettingsAware, abc.ABC):
         raise NotImplementedError
 
     @abc.abstractmethod
-    def fetch_active_threads(self, channel: snowflakes.SnowflakeishOr[channels_.PermissibleGuildChannel]) -> None:
+    async def fetch_active_threads(
+        self, guild: snowflakes.SnowflakeishOr[guilds.Guild]
+    ) -> typing.Sequence[channels_.GuildThreadChannel]:
         raise NotImplementedError
 
     @abc.abstractmethod
     def fetch_public_archived_threads(
-        self, channel: snowflakes.SnowflakeishOr[channels_.PermissibleGuildChannel]
-    ) -> None:
+        self,
+        channel: snowflakes.SnowflakeishOr[channels_.PermissibleGuildChannel],
+        *,
+        start_at: undefined.UndefinedOr[
+            snowflakes.SearchableSnowflakeishOr[channels_.GuildThreadChannel]
+        ] = undefined.UNDEFINED,
+    ) -> iterators.LazyIterator[typing.Union[channels_.GuildNewsThread, channels_.GuildPublicThread]]:
         raise NotImplementedError
 
     @abc.abstractmethod
     def fetch_private_archived_threads(
-        self, channel: snowflakes.SnowflakeishOr[channels_.PermissibleGuildChannel]
-    ) -> None:
+        self,
+        channel: snowflakes.SnowflakeishOr[channels_.PermissibleGuildChannel],
+        *,
+        start_at: undefined.UndefinedOr[
+            snowflakes.SearchableSnowflakeishOr[channels_.GuildThreadChannel]
+        ] = undefined.UNDEFINED,
+    ) -> iterators.LazyIterator[channels_.GuildPrivateThread]:
         raise NotImplementedError
 
     @abc.abstractmethod
     def fetch_joined_private_archived_threads(
-        self, channel: snowflakes.SnowflakeishOr[channels_.PermissibleGuildChannel]
-    ) -> None:
+        self,
+        channel: snowflakes.SnowflakeishOr[channels_.PermissibleGuildChannel],
+        *,
+        start_at: undefined.UndefinedOr[
+            snowflakes.SearchableSnowflakeishOr[channels_.GuildThreadChannel]
+        ] = undefined.UNDEFINED,
+    ) -> iterators.LazyIterator[channels_.GuildPrivateThread]:
         raise NotImplementedError
 
     @abc.abstractmethod

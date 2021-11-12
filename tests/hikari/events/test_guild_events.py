@@ -87,6 +87,7 @@ class TestGuildAvailableEvent:
             members={},
             presences={},
             voice_states={},
+            threads={},
         )
 
     def test_app_property(self, event):

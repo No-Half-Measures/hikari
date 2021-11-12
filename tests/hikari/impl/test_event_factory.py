@@ -63,7 +63,9 @@ class TestEventFactoryImpl:
     ##################
 
     def test_deserialize_guild_channel_create_event(self, event_factory, mock_app, mock_shard):
-        mock_app.entity_factory.deserialize_channel.return_value = mock.Mock(spec=channel_models.GuildChannel)
+        mock_app.entity_factory.deserialize_channel.return_value = mock.Mock(
+            spec=channel_models.PermissibleGuildChannel
+        )
         mock_payload = mock.Mock(app=mock_app)
 
         event = event_factory.deserialize_guild_channel_create_event(mock_shard, mock_payload)
@@ -74,7 +76,9 @@ class TestEventFactoryImpl:
         assert event.channel is mock_app.entity_factory.deserialize_channel.return_value
 
     def test_deserialize_guild_channel_update_event(self, event_factory, mock_app, mock_shard):
-        mock_app.entity_factory.deserialize_channel.return_value = mock.Mock(spec=channel_models.GuildChannel)
+        mock_app.entity_factory.deserialize_channel.return_value = mock.Mock(
+            spec=channel_models.PermissibleGuildChannel
+        )
         mock_old_channel = object()
         mock_payload = object()
 
@@ -89,7 +93,9 @@ class TestEventFactoryImpl:
         assert event.old_channel is mock_old_channel
 
     def test_deserialize_guild_channel_delete_event(self, event_factory, mock_app, mock_shard):
-        mock_app.entity_factory.deserialize_channel.return_value = mock.Mock(spec=channel_models.GuildChannel)
+        mock_app.entity_factory.deserialize_channel.return_value = mock.Mock(
+            spec=channel_models.PermissibleGuildChannel
+        )
         mock_payload = mock.Mock(app=mock_app)
 
         event = event_factory.deserialize_guild_channel_delete_event(mock_shard, mock_payload)
