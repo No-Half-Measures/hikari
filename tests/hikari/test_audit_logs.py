@@ -119,6 +119,7 @@ class TestAuditLog:
             },
             integrations={},
             users={},
+            threads={},
             webhooks={},
         )
         assert list(audit_log) == [entry_1, entry_2, entry_3]
@@ -135,6 +136,7 @@ class TestAuditLog:
                 snowflakes.Snowflake(999999): entry_2,
             },
             integrations={},
+            threads={},
             users={},
             webhooks={},
         )
@@ -153,6 +155,7 @@ class TestAuditLog:
                 snowflakes.Snowflake(783452): object(),
             },
             integrations={},
+            threads={},
             users={},
             webhooks={},
         )
@@ -163,6 +166,7 @@ class TestAuditLog:
             audit_logs.AuditLog(
                 entries=[object(), object()],
                 integrations={},
+                threads={},
                 users={},
                 webhooks={},
             )["OK"]
@@ -176,6 +180,7 @@ class TestAuditLog:
                 snowflakes.Snowflake(783452): object(),
             },
             integrations={},
+            threads={},
             users={},
             webhooks={},
         )
