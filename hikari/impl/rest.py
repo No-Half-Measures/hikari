@@ -2622,6 +2622,7 @@ class RESTClientImpl(rest_api.RESTClient):
         channel: snowflakes.SnowflakeishOr[channels_.PermissibleGuildChannel],
         message: snowflakes.SnowflakeishOr[messages_.PartialMessage],
         name: str,
+        /,
         *,
         auto_archive_duration: undefined.UndefinedOr[time.Intervalish] = datetime.timedelta(days=1),
         rate_limit_per_user: undefined.UndefinedOr[time.Intervalish] = undefined.UNDEFINED,
@@ -2648,6 +2649,7 @@ class RESTClientImpl(rest_api.RESTClient):
         channel: snowflakes.SnowflakeishOr[channels_.PermissibleGuildChannel],
         type: typing.Union[channels_.ChannelType, int],
         name: str,
+        /,
         *,
         auto_archive_duration: undefined.UndefinedOr[time.Intervalish] = datetime.timedelta(days=1),
         invitable: undefined.UndefinedOr[bool] = undefined.UNDEFINED,
@@ -2670,7 +2672,7 @@ class RESTClientImpl(rest_api.RESTClient):
         assert isinstance(response, dict)
         return self._entity_factory.deserialize_guild_thread(response)
 
-    async def join_thread(self, channel: snowflakes.SnowflakeishOr[channels_.GuildTextChannel]) -> None:
+    async def join_thread(self, channel: snowflakes.SnowflakeishOr[channels_.GuildTextChannel], /) -> None:
         route = routes.PUT_MY_THREAD_MEMBER.compile(channel=channel)
         await self._request(route)
 
@@ -2678,6 +2680,7 @@ class RESTClientImpl(rest_api.RESTClient):
         self,
         channel: snowflakes.SnowflakeishOr[channels_.GuildThreadChannel],
         user: snowflakes.SnowflakeishOr[users.PartialUser],
+        /,
     ) -> None:
         route = routes.PUT_THREAD_MEMBER.compile(channel=channel, user=user)
         await self._request(route)
@@ -2690,6 +2693,7 @@ class RESTClientImpl(rest_api.RESTClient):
         self,
         channel: snowflakes.SnowflakeishOr[channels_.GuildThreadChannel],
         user: snowflakes.SnowflakeishOr[users.PartialUser],
+        /,
     ) -> None:
         route = routes.DELETE_THREAD_MEMBER.compile(channel=channel, user=user)
         await self._request(route)
@@ -2698,6 +2702,7 @@ class RESTClientImpl(rest_api.RESTClient):
         self,
         channel: snowflakes.SnowflakeishOr[channels_.GuildThreadChannel],
         user: snowflakes.SnowflakeishOr[users.PartialUser],
+        /,
     ) -> channels_.ThreadMember:
         route = routes.GET_THREAD_MEMBER.compile(channel=channel, user=user)
         response = await self._request(route)
@@ -2705,7 +2710,7 @@ class RESTClientImpl(rest_api.RESTClient):
         return self._entity_factory.deserialize_thread_member(response)
 
     async def fetch_thread_members(
-        self, channel: snowflakes.SnowflakeishOr[channels_.GuildThreadChannel]
+        self, channel: snowflakes.SnowflakeishOr[channels_.GuildThreadChannel], /
     ) -> typing.Sequence[channels_.ThreadMember]:
         route = routes.GET_THREAD_MEMBERS.compile(channel=channel)
         response = await self._request(route)
@@ -2713,7 +2718,7 @@ class RESTClientImpl(rest_api.RESTClient):
         return [self._entity_factory.deserialize_thread_member(member) for member in response]
 
     async def fetch_active_threads(
-        self, guild: snowflakes.SnowflakeishOr[guilds.Guild]
+        self, guild: snowflakes.SnowflakeishOr[guilds.Guild], /
     ) -> typing.Sequence[channels_.GuildThreadChannel]:
         route = routes.GET_ACTIVE_THREADS.compile(guild=guild)
         response = await self._request(route)
@@ -2743,6 +2748,7 @@ class RESTClientImpl(rest_api.RESTClient):
     def fetch_public_archived_threads(
         self,
         channel: snowflakes.SnowflakeishOr[channels_.PermissibleGuildChannel],
+        /,
         *,
         before: undefined.UndefinedOr[datetime.datetime] = undefined.UNDEFINED,
     ) -> iterators.LazyIterator[typing.Union[channels_.GuildNewsThread, channels_.GuildPublicThread]]:
@@ -2758,6 +2764,7 @@ class RESTClientImpl(rest_api.RESTClient):
     def fetch_private_archived_threads(
         self,
         channel: snowflakes.SnowflakeishOr[channels_.PermissibleGuildChannel],
+        /,
         *,
         before: undefined.UndefinedOr[datetime.datetime] = undefined.UNDEFINED,
     ) -> iterators.LazyIterator[channels_.GuildPrivateThread]:
@@ -2773,6 +2780,7 @@ class RESTClientImpl(rest_api.RESTClient):
     def fetch_joined_private_archived_threads(
         self,
         channel: snowflakes.SnowflakeishOr[channels_.PermissibleGuildChannel],
+        /,
         *,
         before: undefined.UndefinedOr[
             snowflakes.SearchableSnowflakeishOr[channels_.GuildThreadChannel]
