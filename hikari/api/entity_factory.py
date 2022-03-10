@@ -469,7 +469,7 @@ class EntityFactory(abc.ABC):
 
         !!! note
             `guild_id` currently only covers the gateway GUILD_CREATE event
-            where `"guild_id"` is npt included in the channel's payload.
+            where `"guild_id"` is not included in the channel's payload.
 
         Returns
         -------
@@ -505,7 +505,7 @@ class EntityFactory(abc.ABC):
 
         !!! note
             `guild_id` currently only covers the gateway GUILD_CREATE event
-            where `"guild_id"` is npt included in the channel's payload.
+            where `"guild_id"` is not included in the channel's payload.
 
         Returns
         -------
@@ -573,7 +573,7 @@ class EntityFactory(abc.ABC):
 
             !!! note
                 `guild_id` currently only covers the gateway GUILD_CREATE event
-                where `"guild_id"` is npt included in the channel's payload.
+                where `"guild_id"` is not included in the channel's payload.
         member : hikari.undefined.UndefinedNoneOr[hikari.channels.ThreadMember]
             The member object for the thread. If passed then this will be
             prioritised over `"member"` in the payload when passed.
@@ -591,7 +591,7 @@ class EntityFactory(abc.ABC):
         """
 
     @abc.abstractmethod
-    def deserilaize_guild_news_thread(
+    def deserialize_guild_news_thread(
         self,
         payload: data_binding.JSONObject,
         *,
