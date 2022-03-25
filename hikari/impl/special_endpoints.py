@@ -33,7 +33,6 @@ __all__: typing.List[str] = [
     "ContextMenuCommandBuilder",
     "TypingIndicator",
     "GuildBuilder",
-    "GuildThreadIterator",
     "InteractionAutocompleteBuilder",
     "InteractionDeferredBuilder",
     "InteractionMessageBuilder",
