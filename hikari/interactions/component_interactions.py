@@ -23,7 +23,7 @@
 """Models and enums used for Discord's Components interaction flow."""
 from __future__ import annotations
 
-__all__: typing.List[str] = ["ComponentInteraction", "COMPONENT_RESPONSE_TYPES", "ComponentResponseTypesT"]
+__all__: typing.Sequence[str] = ("ComponentInteraction", "COMPONENT_RESPONSE_TYPES", "ComponentResponseTypesT")
 
 import typing
 
@@ -32,6 +32,7 @@ import attr
 from hikari import channels
 from hikari import traits
 from hikari.interactions import base_interactions
+from hikari.internal import deprecation
 
 if typing.TYPE_CHECKING:
     from hikari import guilds
@@ -82,7 +83,10 @@ The following types are valid for this:
 
 
 @attr.define(hash=True, weakref_slot=False)
-class ComponentInteraction(base_interactions.MessageResponseMixin[ComponentResponseTypesT]):
+class ComponentInteraction(
+    base_interactions.MessageResponseMixin[ComponentResponseTypesT],
+    base_interactions.ModalResponseMixin,
+):
     """Represents a component interaction on Discord."""
 
     channel_id: snowflakes.Snowflake = attr.field(eq=False)
@@ -316,6 +320,7 @@ class ComponentInteraction(base_interactions.MessageResponseMixin[ComponentRespo
 
         return None
 
+    @deprecation.deprecated("2.0.0.dev110", "fetch_message")
     async def fetch_parent_message(self) -> messages.Message:
         """Fetch the message which this interaction was triggered on.
 
@@ -348,6 +353,7 @@ class ComponentInteraction(base_interactions.MessageResponseMixin[ComponentRespo
         """
         return await self.fetch_message(self.message.id)
 
+    @deprecation.deprecated("2.0.0.dev110", "message")
     def get_parent_message(self) -> typing.Optional[messages.PartialMessage]:
         """Get the message which this interaction was triggered on from the cache.
 

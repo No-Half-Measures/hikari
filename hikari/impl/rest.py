@@ -28,7 +28,7 @@ RESTful functionality.
 
 from __future__ import annotations
 
-__all__: typing.List[str] = ["ClientCredentialsStrategy", "RESTApp", "RESTClientImpl"]
+__all__: typing.Sequence[str] = ("ClientCredentialsStrategy", "RESTApp", "RESTClientImpl")
 
 import asyncio
 import base64
@@ -3474,7 +3474,7 @@ class RESTClientImpl(rest_api.RESTClient):
     async def create_context_menu_command(
         self,
         application: snowflakes.SnowflakeishOr[guilds.PartialApplication],
-        type: typing.Literal[commands.CommandType.USER, commands.CommandType.MESSAGE, 2, 3],
+        type: typing.Union[commands.CommandType, int],
         name: str,
         *,
         guild: undefined.UndefinedOr[snowflakes.SnowflakeishOr[guilds.PartialGuild]] = undefined.UNDEFINED,
@@ -3629,6 +3629,24 @@ class RESTClientImpl(rest_api.RESTClient):
     ) -> special_endpoints.InteractionMessageBuilder:
         return special_endpoints_impl.InteractionMessageBuilder(type=type_)
 
+    def interaction_modal_builder(
+        self,
+        title: str,
+        custom_id: str,
+        *,
+        components: undefined.UndefinedOr[typing.Sequence[special_endpoints.ComponentBuilder]] = undefined.UNDEFINED,
+    ) -> special_endpoints.InteractionModalBuilder:
+        if components is undefined.UNDEFINED:
+            components = []
+        else:
+            components = list(components)
+
+        return special_endpoints_impl.InteractionModalBuilder(
+            title=title,
+            custom_id=custom_id,
+            components=components,
+        )
+
     async def fetch_interaction_response(
         self, application: snowflakes.SnowflakeishOr[guilds.PartialApplication], token: str
     ) -> messages_.Message:
@@ -3756,6 +3774,29 @@ class RESTClientImpl(rest_api.RESTClient):
         data.put("choices", [{"name": choice.name, "value": choice.value} for choice in choices])
 
         body.put("data", data)
+        await self._request(route, json=body, no_auth=True)
+
+    async def create_modal_response(
+        self,
+        interaction: snowflakes.SnowflakeishOr[base_interactions.PartialInteraction],
+        token: str,
+        *,
+        title: str,
+        custom_id: str,
+        components: typing.Sequence[special_endpoints.ComponentBuilder],
+    ) -> None:
+        route = routes.POST_INTERACTION_RESPONSE.compile(interaction=interaction, token=token)
+
+        body = data_binding.JSONObjectBuilder()
+        body.put("type", base_interactions.ResponseType.MODAL)
+
+        data = data_binding.JSONObjectBuilder()
+        data.put("title", title)
+        data.put("custom_id", custom_id)
+        data.put_array("components", components, conversion=lambda component: component.build())
+
+        body.put("data", data)
+
         await self._request(route, json=body, no_auth=True)
 
     def build_action_row(self) -> special_endpoints.ActionRowBuilder:

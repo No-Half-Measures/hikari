@@ -25,6 +25,7 @@ import pytest
 
 from hikari import commands
 from hikari import emojis
+from hikari import files
 from hikari import messages
 from hikari import snowflakes
 from hikari import undefined
@@ -542,17 +543,23 @@ class TestInteractionDeferredBuilder:
     def test_build(self):
         builder = special_endpoints.InteractionDeferredBuilder(base_interactions.ResponseType.DEFERRED_MESSAGE_CREATE)
 
-        assert builder.build(object()) == {"type": base_interactions.ResponseType.DEFERRED_MESSAGE_CREATE}
+        result, attachments = builder.build(object())
+
+        assert result == {"type": base_interactions.ResponseType.DEFERRED_MESSAGE_CREATE}
+        assert attachments == ()
 
     def test_build_with_flags(self):
         builder = special_endpoints.InteractionDeferredBuilder(
             base_interactions.ResponseType.DEFERRED_MESSAGE_CREATE
         ).set_flags(64)
 
-        assert builder.build(object()) == {
+        result, attachments = builder.build(object())
+
+        assert result == {
             "type": base_interactions.ResponseType.DEFERRED_MESSAGE_CREATE,
             "data": {"flags": 64},
         }
+        assert attachments == ()
 
 
 class TestInteractionMessageBuilder:
@@ -572,25 +579,38 @@ class TestInteractionMessageBuilder:
 
         assert builder.content == "meow nya"
 
-    def test_components_property(self):
-        mock_component = object()
+    def test_attachments_property(self):
+        mock_attachment = mock.Mock()
+        builder = special_endpoints.InteractionMessageBuilder(4).add_attachment(mock_attachment)
+
+        assert builder.attachments == [mock_attachment]
+
+    def test_attachments_property_when_undefined(self):
         builder = special_endpoints.InteractionMessageBuilder(4)
 
-        assert builder.components == []
+        assert builder.attachments is undefined.UNDEFINED
 
-        builder.add_component(mock_component)
+    def test_components_property(self):
+        mock_component = object()
+        builder = special_endpoints.InteractionMessageBuilder(4).add_component(mock_component)
 
         assert builder.components == [mock_component]
 
-    def test_embeds_property(self):
-        mock_embed = object()
+    def test_components_property_when_undefined(self):
         builder = special_endpoints.InteractionMessageBuilder(4)
 
-        assert builder.embeds == []
+        assert builder.components is undefined.UNDEFINED
 
-        builder.add_embed(mock_embed)
+    def test_embeds_property(self):
+        mock_embed = object()
+        builder = special_endpoints.InteractionMessageBuilder(4).add_embed(mock_embed)
 
         assert builder.embeds == [mock_embed]
+
+    def test_embeds_property_when_undefined(self):
+        builder = special_endpoints.InteractionMessageBuilder(4)
+
+        assert builder.embeds is undefined.UNDEFINED
 
     def test_flags_property(self):
         builder = special_endpoints.InteractionMessageBuilder(4).set_flags(95995)
@@ -635,7 +655,7 @@ class TestInteractionMessageBuilder:
             .set_role_mentions([54234])
         )
 
-        result = builder.build(mock_entity_factory)
+        result, attachments = builder.build(mock_entity_factory)
 
         mock_entity_factory.serialize_embed.assert_called_once_with(mock_embed)
         mock_component.build.assert_called_once_with()
@@ -650,18 +670,96 @@ class TestInteractionMessageBuilder:
                 "allowed_mentions": {"parse": [], "users": ["123"], "roles": ["54234"]},
             },
         }
+        assert attachments == []
 
-    def test_build_handles_attachments(self):
+    def test_build_for_partial_when_message_create(self):
         mock_entity_factory = mock.Mock()
-        mock_entity_factory.serialize_embed.return_value = (object(), [object()])
-        builder = special_endpoints.InteractionMessageBuilder(base_interactions.ResponseType.MESSAGE_CREATE).add_embed(
-            object()
+        builder = special_endpoints.InteractionMessageBuilder(base_interactions.ResponseType.MESSAGE_CREATE)
+
+        result, attachments = builder.build(mock_entity_factory)
+
+        mock_entity_factory.serialize_embed.assert_not_called()
+        assert result == {
+            "type": base_interactions.ResponseType.MESSAGE_CREATE,
+            "data": {"allowed_mentions": {"parse": []}},
+        }
+        assert attachments == []
+
+    def test_build_for_partial_when_message_update(self):
+        mock_entity_factory = mock.Mock()
+        builder = special_endpoints.InteractionMessageBuilder(base_interactions.ResponseType.MESSAGE_UPDATE)
+
+        result, attachments = builder.build(mock_entity_factory)
+
+        mock_entity_factory.serialize_embed.assert_not_called()
+        assert result == {"type": base_interactions.ResponseType.MESSAGE_UPDATE, "data": {}}
+        assert attachments == []
+
+    def test_build_for_partial_when_empty_lists(self):
+        mock_entity_factory = mock.Mock()
+        builder = special_endpoints.InteractionMessageBuilder(
+            base_interactions.ResponseType.MESSAGE_UPDATE, attachments=[], components=[], embeds=[]
         )
 
-        with pytest.raises(
-            ValueError, match="Cannot send an embed with attachments in a slash command's initial response"
-        ):
-            builder.build(mock_entity_factory)
+        result, attachments = builder.build(mock_entity_factory)
+
+        mock_entity_factory.serialize_embed.assert_not_called()
+        assert result == {
+            "type": base_interactions.ResponseType.MESSAGE_UPDATE,
+            "data": {
+                "components": [],
+                "embeds": [],
+            },
+        }
+        assert attachments == []
+
+    def test_build_handles_attachments(self):
+        mock_attachment = mock.Mock()
+        mock_other_attachment = mock.Mock()
+        mock_entity_factory = mock.Mock()
+        mock_entity_factory.serialize_embed.return_value = (object(), [mock_other_attachment])
+        builder = (
+            special_endpoints.InteractionMessageBuilder(base_interactions.ResponseType.MESSAGE_CREATE)
+            .add_attachment(mock_attachment)
+            .add_embed(object())
+        )
+
+        _, attachments = builder.build(mock_entity_factory)
+        assert attachments == [files.ensure_resource(mock_attachment), mock_other_attachment]
+
+
+class TestInteractionModalBuilder:
+    def test_type_property(self):
+        builder = special_endpoints.InteractionModalBuilder("title", "custom_id")
+        assert builder.type == 9
+
+    def test_title_property(self):
+        builder = special_endpoints.InteractionModalBuilder("title", "custom_id").set_title("title2")
+        assert builder.title == "title2"
+
+    def test_custom_id_property(self):
+        builder = special_endpoints.InteractionModalBuilder("title", "custom_id").set_custom_id("better_custom_id")
+        assert builder.custom_id == "better_custom_id"
+
+    def test_components_property(self):
+        component = mock.Mock()
+        builder = special_endpoints.InteractionModalBuilder("title", "custom_id").add_component(component)
+        assert builder.components == [component]
+
+    def test_build(self):
+        component = mock.Mock()
+        builder = special_endpoints.InteractionModalBuilder("title", "custom_id").add_component(component)
+
+        result, attachments = builder.build(mock.Mock())
+        assert result == {
+            "type": 9,
+            "data": {
+                "title": "title",
+                "custom_id": "custom_id",
+                "components": [component.build.return_value],
+            },
+        }
+        assert attachments == ()
 
 
 class TestSlashCommandBuilder:
@@ -724,6 +822,45 @@ class TestSlashCommandBuilder:
 
         assert result == {"type": 1, "name": "we are numberr", "description": "oner", "options": []}
 
+    @pytest.mark.asyncio()
+    async def test_create(self):
+        builder = (
+            special_endpoints.SlashCommandBuilder("we are number", "one")
+            .add_option(mock.Mock())
+            .set_id(3412312)
+            .set_default_permission(False)
+        )
+        mock_rest = mock.AsyncMock()
+
+        result = await builder.create(mock_rest, 123431123)
+
+        assert result is mock_rest.create_slash_command.return_value
+        mock_rest.create_slash_command.assert_awaited_once_with(
+            123431123,
+            builder.name,
+            builder.description,
+            guild=undefined.UNDEFINED,
+            default_permission=builder.default_permission,
+            options=builder.options,
+        )
+
+    @pytest.mark.asyncio()
+    async def test_create_with_guild(self):
+        builder = special_endpoints.SlashCommandBuilder("we are number", "one")
+        mock_rest = mock.AsyncMock()
+
+        result = await builder.create(mock_rest, 54455445, guild=54123123321)
+
+        assert result is mock_rest.create_slash_command.return_value
+        mock_rest.create_slash_command.assert_awaited_once_with(
+            54455445,
+            builder.name,
+            builder.description,
+            guild=54123123321,
+            default_permission=builder.default_permission,
+            options=builder.options,
+        )
+
 
 class TestContextMenuBuilder:
     def test_build_with_optional_data(self):
@@ -748,6 +885,42 @@ class TestContextMenuBuilder:
         result = builder.build(mock.Mock())
 
         assert result == {"type": 3, "name": "nameeeee"}
+
+    @pytest.mark.asyncio()
+    async def test_create(self):
+        builder = (
+            special_endpoints.ContextMenuCommandBuilder(commands.CommandType.USER, "we are number")
+            .set_id(3412312)
+            .set_default_permission(False)
+        )
+        mock_rest = mock.AsyncMock()
+
+        result = await builder.create(mock_rest, 123321)
+
+        assert result is mock_rest.create_context_menu_command.return_value
+        mock_rest.create_context_menu_command.assert_awaited_once_with(
+            123321,
+            builder.type,
+            builder.name,
+            guild=undefined.UNDEFINED,
+            default_permission=builder.default_permission,
+        )
+
+    @pytest.mark.asyncio()
+    async def test_create_with_guild(self):
+        builder = special_endpoints.ContextMenuCommandBuilder(commands.CommandType.MESSAGE, "we are number")
+        mock_rest = mock.AsyncMock()
+
+        result = await builder.create(mock_rest, 4444444, guild=765234123)
+
+        assert result is mock_rest.create_context_menu_command.return_value
+        mock_rest.create_context_menu_command.assert_awaited_once_with(
+            4444444,
+            builder.type,
+            builder.name,
+            guild=765234123,
+            default_permission=builder.default_permission,
+        )
 
 
 @pytest.mark.parametrize("emoji", ["UNICORN", emojis.UnicodeEmoji("UNICORN")])
@@ -1081,6 +1254,93 @@ class TestSelectMenuBuilder:
         }
 
 
+class TestTextInput:
+    @pytest.fixture()
+    def text_input(self):
+        return special_endpoints.TextInputBuilder(
+            container=mock.Mock(),
+            custom_id="o2o2o2",
+            label="label",
+        )
+
+    def test_set_style(self, text_input):
+        assert text_input.set_style(messages.TextInputStyle.PARAGRAPH) is text_input
+        assert text_input.style == messages.TextInputStyle.PARAGRAPH
+
+    def test_set_custom_id(self, text_input):
+        assert text_input.set_custom_id("custooom") is text_input
+        assert text_input.custom_id == "custooom"
+
+    def test_set_label(self, text_input):
+        assert text_input.set_label("labeeeel") is text_input
+        assert text_input.label == "labeeeel"
+
+    def test_set_placeholder(self, text_input):
+        assert text_input.set_placeholder("place") is text_input
+        assert text_input.placeholder == "place"
+
+    def test_set_required(self, text_input):
+        assert text_input.set_required(True) is text_input
+        assert text_input.required is True
+
+    def test_set_value(self, text_input):
+        assert text_input.set_value("valueeeee") is text_input
+        assert text_input.value == "valueeeee"
+
+    def test_set_min_length_(self, text_input):
+        assert text_input.set_min_length(10) is text_input
+        assert text_input.min_length == 10
+
+    def test_set_max_length(self, text_input):
+        assert text_input.set_max_length(250) is text_input
+        assert text_input.max_length == 250
+
+    def test_add_to_container(self, text_input):
+        assert text_input.add_to_container() is text_input._container
+        text_input._container.add_component.assert_called_once_with(text_input)
+
+    def test_build(self):
+        result = special_endpoints.TextInputBuilder(
+            container=object(),
+            custom_id="o2o2o2",
+            label="label",
+        ).build()
+
+        assert result == {
+            "type": messages.ComponentType.TEXT_INPUT,
+            "style": 1,
+            "custom_id": "o2o2o2",
+            "label": "label",
+        }
+
+    def test_build_partial(self):
+        result = (
+            special_endpoints.TextInputBuilder(
+                container=object(),
+                custom_id="o2o2o2",
+                label="label",
+            )
+            .set_placeholder("placeholder")
+            .set_value("value")
+            .set_required(False)
+            .set_min_length(10)
+            .set_max_length(250)
+            .build()
+        )
+
+        assert result == {
+            "type": messages.ComponentType.TEXT_INPUT,
+            "style": 1,
+            "custom_id": "o2o2o2",
+            "label": "label",
+            "placeholder": "placeholder",
+            "value": "value",
+            "required": False,
+            "min_length": 10,
+            "max_length": 250,
+        }
+
+
 class TestActionRowBuilder:
     def test_components_property(self):
         mock_component = object()
@@ -1106,6 +1366,14 @@ class TestActionRowBuilder:
     def test_add_select_menu(self):
         row = special_endpoints.ActionRowBuilder()
         menu = row.add_select_menu("hihihi")
+
+        menu.add_to_container()
+
+        assert row.components == [menu]
+
+    def test_add_text_input(self):
+        row = special_endpoints.ActionRowBuilder()
+        menu = row.add_text_input("hihihi", "label")
 
         menu.add_to_container()
 

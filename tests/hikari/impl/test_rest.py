@@ -1457,7 +1457,8 @@ class TestRESTClientImpl:
         assert isinstance(result, special_endpoints.InteractionAutocompleteBuilder)
         assert len(result.choices) == 2
 
-        raw = result.build(mock.Mock())
+        raw, files = result.build(mock.Mock())
+        assert files == ()
         assert raw["data"] == {"choices": [{"name": "name", "value": "value"}, {"name": "a", "value": "b"}]}
 
     def test_interaction_autocomplete_builder_with_set_choices(self, rest_client):
@@ -1471,6 +1472,21 @@ class TestRESTClientImpl:
 
         assert result.type == 4
         assert isinstance(result, special_endpoints.InteractionMessageBuilder)
+
+    def test_interaction_modal_builder(self, rest_client):
+        result = rest_client.interaction_modal_builder("title", "custom")
+        result.add_component(special_endpoints.ActionRowBuilder().add_text_input("idd", "labell").add_to_container())
+
+        assert result.type == 9
+        assert isinstance(result, special_endpoints.InteractionModalBuilder)
+
+    def test_interaction_modal_builder_with_components(self, rest_client):
+        component = mock.Mock()
+        result = rest_client.interaction_modal_builder("title", "custom", components=(component,))
+
+        assert result.type == 9
+        assert isinstance(result, special_endpoints.InteractionModalBuilder)
+        assert result.components == [component]
 
     def test_fetch_scheduled_event_users(self, rest_client: rest.RESTClientImpl):
         with mock.patch.object(special_endpoints, "ScheduledEventUserIterator") as iterator_cls:
@@ -5653,6 +5669,20 @@ class TestRESTClientImplAsync:
         rest_client._request.assert_awaited_once_with(
             expected_route,
             json={"type": 8, "data": {"choices": [{"name": "a", "value": "b"}, {"name": "foo", "value": "bar"}]}},
+            no_auth=True,
+        )
+
+    async def test_create_modal_response(self, rest_client):
+        expected_route = routes.POST_INTERACTION_RESPONSE.compile(interaction=1235431, token="dissssnake")
+        rest_client._request = mock.AsyncMock()
+
+        await rest_client.create_modal_response(
+            StubModel(1235431), "dissssnake", title="title", custom_id="idd", components=[]
+        )
+
+        rest_client._request.assert_awaited_once_with(
+            expected_route,
+            json={"type": 9, "data": {"title": "title", "custom_id": "idd", "components": []}},
             no_auth=True,
         )
 

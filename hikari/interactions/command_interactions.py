@@ -23,7 +23,7 @@
 """Models and enums used for Discord's Slash Commands interaction flow."""
 from __future__ import annotations
 
-__all__: typing.List[str] = [
+__all__: typing.Sequence[str] = (
     "AutocompleteInteraction",
     "BaseCommandInteraction",
     "CommandInteractionOption",
@@ -33,7 +33,7 @@ __all__: typing.List[str] = [
     "CommandResponseTypesT",
     "InteractionChannel",
     "ResolvedOptionData",
-]
+)
 
 import typing
 
@@ -364,7 +364,11 @@ class BaseCommandInteraction(base_interactions.PartialInteraction):
 
 @attr_extensions.with_copy
 @attr.define(hash=True, kw_only=True, weakref_slot=False)
-class CommandInteraction(BaseCommandInteraction, base_interactions.MessageResponseMixin[CommandResponseTypesT]):
+class CommandInteraction(
+    BaseCommandInteraction,
+    base_interactions.MessageResponseMixin[CommandResponseTypesT],
+    base_interactions.ModalResponseMixin,
+):
     """Represents a command interaction on Discord."""
 
     options: typing.Optional[typing.Sequence[CommandInteractionOption]] = attr.field(eq=False, hash=False, repr=True)

@@ -23,22 +23,28 @@
 """Provides an interface for Interaction REST server API implementations to follow."""
 from __future__ import annotations
 
-__all__: typing.List[str] = ["ListenerT", "Response", "InteractionServer"]
+__all__: typing.Sequence[str] = ("ListenerT", "Response", "InteractionServer")
 
 import abc
 import typing
 
 if typing.TYPE_CHECKING:
+    from hikari import files as files_
     from hikari.api import special_endpoints
     from hikari.interactions import base_interactions
     from hikari.interactions import command_interactions
     from hikari.interactions import component_interactions
+    from hikari.interactions import modal_interactions
 
     _InteractionT_co = typing.TypeVar("_InteractionT_co", bound=base_interactions.PartialInteraction, covariant=True)
     _ResponseT_co = typing.TypeVar("_ResponseT_co", bound=special_endpoints.InteractionResponseBuilder, covariant=True)
     _MessageResponseBuilderT = typing.Union[
         special_endpoints.InteractionDeferredBuilder,
         special_endpoints.InteractionMessageBuilder,
+    ]
+    _ModalResponseBuilder = typing.Union[
+        _MessageResponseBuilderT,
+        special_endpoints.InteractionModalBuilder,
     ]
 
 
@@ -68,24 +74,23 @@ class Response(typing.Protocol):
     __slots__: typing.Sequence[str] = ()
 
     @property
-    def headers(self) -> typing.Optional[typing.Mapping[str, str]]:
-        """Headers that should be added to the response if applicable.
+    def content_type(self) -> typing.Optional[str]:
+        """Content type of the response's payload, if applicable."""
+        raise NotImplementedError
 
-        Returns
-        -------
-        typing.Optional[typing.Mapping[builtins.str, builtins.str]]
-            A mapping of string header names to string header values that should
-            be included in the response if applicable else `builtins.None`.
-        """
+    @property
+    def files(self) -> typing.Sequence[files_.Resource[files_.AsyncReader]]:
+        """Up to 10 files that should be included alongside a JSON response."""
+        raise NotImplementedError
+
+    @property
+    def headers(self) -> typing.Optional[typing.MutableMapping[str, str]]:
+        """Headers that should be added to the response if applicable."""
         raise NotImplementedError
 
     @property
     def payload(self) -> typing.Optional[bytes]:
         """Payload to provide in the response.
-
-        !!! note
-            If this is not `builtins.None` then an appropriate `"Content-Type"`
-            header should be declared in `Response.headers`
 
         Returns
         -------
@@ -137,14 +142,14 @@ class InteractionServer(abc.ABC):
     @abc.abstractmethod
     def get_listener(
         self, interaction_type: typing.Type[command_interactions.CommandInteraction], /
-    ) -> typing.Optional[ListenerT[command_interactions.CommandInteraction, _MessageResponseBuilderT]]:
+    ) -> typing.Optional[ListenerT[command_interactions.CommandInteraction, _ModalResponseBuilder]]:
         ...
 
     @typing.overload
     @abc.abstractmethod
     def get_listener(
         self, interaction_type: typing.Type[component_interactions.ComponentInteraction], /
-    ) -> typing.Optional[ListenerT[component_interactions.ComponentInteraction, _MessageResponseBuilderT]]:
+    ) -> typing.Optional[ListenerT[component_interactions.ComponentInteraction, _ModalResponseBuilder]]:
         ...
 
     @typing.overload
@@ -154,6 +159,13 @@ class InteractionServer(abc.ABC):
     ) -> typing.Optional[
         ListenerT[command_interactions.AutocompleteInteraction, special_endpoints.InteractionAutocompleteBuilder]
     ]:
+        ...
+
+    @typing.overload
+    @abc.abstractmethod
+    def get_listener(
+        self, interaction_type: typing.Type[modal_interactions.ModalInteraction], /
+    ) -> typing.Optional[ListenerT[modal_interactions.ModalInteraction, _MessageResponseBuilderT]]:
         ...
 
     @typing.overload
@@ -186,7 +198,7 @@ class InteractionServer(abc.ABC):
     def set_listener(
         self,
         interaction_type: typing.Type[command_interactions.CommandInteraction],
-        listener: typing.Optional[ListenerT[command_interactions.CommandInteraction, _MessageResponseBuilderT]],
+        listener: typing.Optional[ListenerT[command_interactions.CommandInteraction, _ModalResponseBuilder]],
         /,
         *,
         replace: bool = False,
@@ -198,7 +210,7 @@ class InteractionServer(abc.ABC):
     def set_listener(
         self,
         interaction_type: typing.Type[component_interactions.ComponentInteraction],
-        listener: typing.Optional[ListenerT[component_interactions.ComponentInteraction, _MessageResponseBuilderT]],
+        listener: typing.Optional[ListenerT[component_interactions.ComponentInteraction, _ModalResponseBuilder]],
         /,
         *,
         replace: bool = False,
@@ -213,6 +225,18 @@ class InteractionServer(abc.ABC):
         listener: typing.Optional[
             ListenerT[command_interactions.AutocompleteInteraction, special_endpoints.InteractionAutocompleteBuilder]
         ],
+        /,
+        *,
+        replace: bool = False,
+    ) -> None:
+        ...
+
+    @typing.overload
+    @abc.abstractmethod
+    def set_listener(
+        self,
+        interaction_type: typing.Type[modal_interactions.ModalInteraction],
+        listener: typing.Optional[ListenerT[modal_interactions.ModalInteraction, _MessageResponseBuilderT]],
         /,
         *,
         replace: bool = False,
