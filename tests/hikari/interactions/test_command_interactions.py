@@ -119,7 +119,6 @@ class TestAutocompleteInteraction:
             command_name="OKOKOK",
             command_type=1,
             options=[],
-            resolved=None,
         )
 
     @pytest.fixture()
