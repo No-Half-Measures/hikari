@@ -2852,7 +2852,7 @@ class Guild(PartialGuild):
 
         return self.app.cache.get_presences_view_for_guild(self.id)
 
-    def get_channels(self) -> typing.Mapping[snowflakes.Snowflake, channels_.GuildChannel]:
+    def get_channels(self) -> typing.Mapping[snowflakes.Snowflake, channels_.PermissibleGuildChannel]:
         """Get the channels cached for the guild.
 
         Returns
@@ -3032,7 +3032,7 @@ class Guild(PartialGuild):
     def get_channel(
         self,
         channel: snowflakes.SnowflakeishOr[channels_.PartialChannel],
-    ) -> typing.Optional[channels_.GuildChannel]:
+    ) -> typing.Optional[channels_.PermissibleGuildChannel]:
         """Get a cached channel that belongs to the guild by it's ID or object.
 
         Parameters
