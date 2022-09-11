@@ -81,6 +81,10 @@ class GatewayGuildDefinition(abc.ABC):
         """Get a mapping of emoji IDs to the emojis that belong to the guild."""
 
     @abc.abstractmethod
+    def stickers(self) -> typing.Mapping[snowflakes.Snowflake, sticker_models.GuildSticker]:
+        """Get a mapping of sticker IDs to the stickers that belong to the guild."""
+
+    @abc.abstractmethod
     def guild(self) -> guild_models.GatewayGuild:
         """Get the object of the guild this definition is for."""
 
@@ -544,9 +548,9 @@ class EntityFactory(abc.ABC):
             ID of the thread this member belongs to. This will be
             prioritised over `"id"` in the payload when passed.
 
-        !!! note
-            `thread_id` currently only covers the gateway GUILD_CREATE event
-            where the field are is included in the thread member's payload.
+            !!! note
+                `thread_id` currently only covers the gateway GUILD_CREATE event
+                where the field are is included in the thread member's payload.
 
         Returns
         -------
@@ -615,6 +619,7 @@ class EntityFactory(abc.ABC):
         guild_id : hikari.undefined.UndefinedOr[hikari.snowflakes.Snowflake]
             The ID of the guild this channel belongs to. This will be
             prioritised over `"guild_id"` in the payload when passed.
+
             !!! note
                 `guild_id` currently only covers the gateway GUILD_CREATE event
                 where `"guild_id"` is not included in the channel's payload.
@@ -654,6 +659,7 @@ class EntityFactory(abc.ABC):
         guild_id : hikari.undefined.UndefinedOr[hikari.snowflakes.Snowflake]
             The ID of the guild this channel belongs to. This will be
             prioritised over `"guild_id"` in the payload when passed.
+
             !!! note
                 `guild_id` currently only covers the gateway GUILD_CREATE event
                 where `"guild_id"` is not included in the channel's payload.
@@ -693,6 +699,7 @@ class EntityFactory(abc.ABC):
         guild_id : hikari.undefined.UndefinedOr[hikari.snowflakes.Snowflake]
             The ID of the guild this channel belongs to. This will be
             prioritised over `"guild_id"` in the payload when passed.
+
             !!! note
                 `guild_id` currently only covers the gateway GUILD_CREATE event
                 where `"guild_id"` is not included in the channel's payload.
@@ -1112,8 +1119,9 @@ class EntityFactory(abc.ABC):
             `hikari.channels.GuildChannel`,
             `hikari.guilds.Member`,
             `hikari.presences.MemberPresence`,
-            `hikari.guilds.Role`, and
-            `hikari.emojis.KnownCustomEmoji`. This is provided in
+            `hikari.guilds.Role`,
+            `hikari.emojis.KnownCustomEmoji`, and
+            `hikari.stickers.GuildSticker`. This is provided in
             several components to allow separate caching and linking
             between entities in various relational cache implementations
             internally.

@@ -26,6 +26,7 @@ import pytest
 from hikari import commands
 from hikari import emojis
 from hikari import files
+from hikari import locales
 from hikari import messages
 from hikari import permissions
 from hikari import snowflakes
@@ -435,19 +436,104 @@ class TestScheduledEventUserIterator:
 
 @pytest.mark.asyncio()
 class TestGuildThreadIterator:
-    async def test__next_chunk(self):
-        mock_payload_1 = {"id": "9494949", "thread_metadata": {"archive_timestamp": "2022-02-21T11:33:09.220087+00:00"}}
-        mock_payload_2 = {"id": "6576234", "thread_metadata": {"archive_timestamp": "2022-02-10T11:33:09.220087+00:00"}}
+    @pytest.mark.parametrize("before_is_timestamp", [True, False])
+    @pytest.mark.asyncio()
+    async def test_aiter_when_empty_chunk(self, before_is_timestamp: bool):
+        mock_deserialize = mock.Mock()
+        mock_entity_factory = mock.Mock()
+        mock_request = mock.AsyncMock(return_value={"threads": [], "has_more": False})
+        mock_route = mock.Mock()
+
+        results = await special_endpoints.GuildThreadIterator(
+            deserialize=mock_deserialize,
+            entity_factory=mock_entity_factory,
+            request_call=mock_request,
+            route=mock_route,
+            before_is_timestamp=before_is_timestamp,
+            before="123321",
+        )
+
+        assert results == []
+        mock_request.assert_awaited_once_with(compiled_route=mock_route, query={"before": "123321", "limit": "100"})
+        mock_entity_factory.deserialize_thread_member.assert_not_called()
+        mock_deserialize.assert_not_called()
+
+    @pytest.mark.asyncio()
+    async def test_aiter_when_before_is_timestamp(self):  # TODO: fix
+        mock_payload_1 = {"id": "9494949", "thread_metadata": {"archive_timestamp": "2022-02-28T11:33:09.220087+00:00"}}
+        mock_payload_2 = {"id": "6576234", "thread_metadata": {"archive_timestamp": "2022-02-21T11:33:09.220087+00:00"}}
         mock_payload_3 = {
             "id": "1236524143",
-            "thread_metadata": {"archive_timestamp": "2022-02-28T11:33:09.220087+00:00"},
+            "thread_metadata": {"archive_timestamp": "2022-02-10T11:33:09.220087+00:00"},
+        }
+        mock_payload_4 = {
+            "id": "12365241663",
+            "thread_metadata": {"archive_timestamp": "2022-02-11T11:33:09.220087+00:00"},
         }
         mock_thread_1 = mock.Mock(id=9494949)
         mock_thread_2 = mock.Mock(id=6576234)
         mock_thread_3 = mock.Mock(id=1236524143)
+        mock_thread_4 = mock.Mock(id=12365241663)
         mock_member_payload_1 = {"id": "9494949", "user_id": "4884844"}
         mock_member_payload_2 = {"id": "6576234", "user_id": "9030920932908"}
         mock_member_payload_3 = {"id": "1236524143", "user_id": "9549494934"}
+        mock_member_1 = mock.Mock(thread_id=9494949)
+        mock_member_2 = mock.Mock(thread_id=6576234)
+        mock_member_3 = mock.Mock(thread_id=1236524143)
+        mock_deserialize = mock.Mock(side_effect=[mock_thread_1, mock_thread_2, mock_thread_3])
+        mock_entity_factory = mock.Mock()
+        mock_entity_factory.deserialize_thread_member.side_effect = [mock_member_1, mock_member_2, mock_member_3]
+        mock_request = mock.AsyncMock(
+            side_effect=[
+                {
+                    "threads": [mock_payload_1, mock_payload_2, mock_payload_3],
+                    "members": [mock_member_payload_1, mock_member_payload_2],
+                    "has_more": True,
+                },
+                {"threads": [mock_payload_3, mock_payload_4], "members": [mock_member_payload_3], "has_more": False},
+            ]
+        )
+        mock_route = mock.Mock()
+        thread_iterator = special_endpoints.GuildThreadIterator(
+            mock_deserialize,
+            mock_entity_factory,
+            mock_request,
+            mock_route,
+            "eatmyshinymetal",
+            before_is_timestamp=True,
+        )
+
+        results = await thread_iterator
+
+        mock_request.assert_awaited_once_with(
+            compiled_route=mock_route, query={"limit": "100", "before": "eatmyshinymetal"}
+        )
+        assert results == [mock_thread_1, mock_thread_2, mock_thread_3, mock_thread_4]
+        mock_entity_factory.deserialize_thread_member.assert_has_calls(
+            [mock.call(mock_member_payload_1), mock.call(mock_member_payload_2), mock.call(mock_member_payload_3)]
+        )
+        mock_deserialize.assert_has_calls(
+            [
+                mock.call(mock_payload_1, member=mock_member_1),
+                mock.call(mock_payload_2, member=mock_member_2),
+                mock.call(mock_payload_3, member=mock_member_3),
+                mock.call(mock_payload_4, member=None),
+            ]
+        )
+
+    async def test_aiter_when_before_is_timestamp_and_undefined(self):
+        mock_payload_1 = {"id": "9494949", "thread_metadata": {"archive_timestamp": "2022-02-21T11:33:09.220087+00:00"}}
+        mock_payload_2 = {"id": "6576234", "thread_metadata": {"archive_timestamp": "2022-02-08T11:33:09.220087+00:00"}}
+        mock_payload_3 = {
+            "id": "1236524143",
+            "thread_metadata": {"archive_timestamp": "2022-02-28T11:33:09.220087+00:00"},
+        }
+        mock_member_payload_1 = {"id": "9494949", "user_id": "4884844"}
+        mock_member_payload_2 = {"id": "6576234", "user_id": "9030920932908"}
+        mock_member_payload_3 = {"id": "1236524143", "user_id": "9549494934"}
+        mock_thread_1 = mock.Mock(id=9494949)
+        mock_thread_2 = mock.Mock(id=6576234)
+        mock_thread_3 = mock.Mock(id=1236524143)
         mock_member_1 = mock.Mock(thread_id=9494949)
         mock_member_2 = mock.Mock(thread_id=6576234)
         mock_member_3 = mock.Mock(thread_id=1236524143)
@@ -467,27 +553,17 @@ class TestGuildThreadIterator:
             mock_entity_factory,
             mock_request,
             mock_route,
-            "eatmyshinymetal",
+            undefined.UNDEFINED,
             before_is_timestamp=True,
         )
 
-        result = await thread_iterator._next_chunk()
+        result = await thread_iterator
 
-        assert result
-        assert thread_iterator._has_more is False
-        assert thread_iterator._next_before == "2022-02-10T11:33:09.220087+00:00"
-        mock_request.assert_awaited_once_with(
-            compiled_route=mock_route, query={"limit": "100", "before": "eatmyshinymetal"}
-        )
-        mock_deserialize.assert_not_called()
-        mock_entity_factory.deserialize_thread_member.assert_not_called()
-
-        results = list(result)
-
-        assert results == [mock_thread_1, mock_thread_2, mock_thread_3]
+        assert result == [mock_thread_1, mock_thread_2, mock_thread_3]
         mock_entity_factory.deserialize_thread_member.assert_has_calls(
             [mock.call(mock_member_payload_1), mock.call(mock_member_payload_2), mock.call(mock_member_payload_3)]
         )
+        mock_request.assert_awaited_once_with(compiled_route=mock_route, query={"limit": "100"})
         mock_deserialize.assert_has_calls(
             [
                 mock.call(mock_payload_1, member=mock_member_1),
@@ -496,45 +572,7 @@ class TestGuildThreadIterator:
             ]
         )
 
-    async def test__next_chunk_when_before_is_timestamp_and_undefined(self):
-        mock_payload_1 = {"id": "9494949", "thread_metadata": {"archive_timestamp": "2022-02-21T11:33:09.220087+00:00"}}
-        mock_payload_2 = {"id": "6576234", "thread_metadata": {"archive_timestamp": "2022-02-08T11:33:09.220087+00:00"}}
-        mock_payload_3 = {
-            "id": "1236524143",
-            "thread_metadata": {"archive_timestamp": "2022-02-28T11:33:09.220087+00:00"},
-        }
-        mock_member_payload_1 = {"id": "9494949", "user_id": "4884844"}
-        mock_member_payload_2 = {"id": "6576234", "user_id": "9030920932908"}
-        mock_member_payload_3 = {"id": "1236524143", "user_id": "9549494934"}
-        mock_deserialize = mock.Mock()
-        mock_entity_factory = mock.Mock()
-        mock_request = mock.AsyncMock(
-            return_value={
-                "threads": [mock_payload_1, mock_payload_2, mock_payload_3],
-                "members": [mock_member_payload_3, mock_member_payload_1, mock_member_payload_2],
-                "has_more": True,
-            }
-        )
-        mock_route = mock.Mock()
-        thread_iterator = special_endpoints.GuildThreadIterator(
-            mock_deserialize,
-            mock_entity_factory,
-            mock_request,
-            mock_route,
-            undefined.UNDEFINED,
-            before_is_timestamp=True,
-        )
-
-        result = await thread_iterator._next_chunk()
-
-        assert result
-        assert thread_iterator._has_more is True
-        assert thread_iterator._next_before == "2022-02-08T11:33:09.220087+00:00"
-        mock_request.assert_awaited_once_with(compiled_route=mock_route, query={"limit": "100"})
-        mock_deserialize.assert_not_called()
-        mock_entity_factory.deserialize_thread_member.assert_not_called()
-
-    async def test__next_chunk_when_before_is_id(self):
+    async def test_aiter_when_before_is_id(self):  # TODO: update
         mock_payload_1 = {"id": "9494949", "thread_metadata": {"archive_timestamp": "2022-02-21T11:33:09.220087+00:00"}}
         mock_payload_2 = {"id": "323232", "thread_metadata": {"archive_timestamp": "2022-02-10T11:33:09.220087+00:00"}}
         mock_payload_3 = {
@@ -563,18 +601,16 @@ class TestGuildThreadIterator:
             before_is_timestamp=False,
         )
 
-        result = await thread_iterator._next_chunk()
+        result = await thread_iterator
 
         assert result
-        assert thread_iterator._has_more is False
-        assert thread_iterator._next_before == "323232"
         mock_request.assert_awaited_once_with(
             compiled_route=mock_route, query={"limit": "100", "before": "3451231231231"}
         )
         mock_deserialize.assert_not_called()
         mock_entity_factory.deserialize_thread_member.assert_not_called()
 
-    async def test__next_chunk_when_before_is_id_and_undefined(self):
+    async def test_aiter_when_before_is_id_and_undefined(self):
         mock_payload_1 = {"id": "9494949", "thread_metadata": {"archive_timestamp": "2022-02-21T11:33:09.220087+00:00"}}
         mock_payload_2 = {"id": "6576234", "thread_metadata": {"archive_timestamp": "2022-02-08T11:33:09.220087+00:00"}}
         mock_payload_3 = {
@@ -584,13 +620,21 @@ class TestGuildThreadIterator:
         mock_member_payload_1 = {"id": "9494949", "user_id": "4884844"}
         mock_member_payload_2 = {"id": "6576234", "user_id": "9030920932908"}
         mock_member_payload_3 = {"id": "1236524143", "user_id": "9549494934"}
+        mock_thread_1 = mock.Mock(id=9494949)
+        mock_thread_2 = mock.Mock(id=6576234)
+        mock_thread_3 = mock.Mock(id=1236524143)
+        mock_member_1 = mock.Mock(thread_id=9494949)
+        mock_member_2 = mock.Mock(thread_id=6576234)
+        mock_member_3 = mock.Mock(thread_id=1236524143)
+        mock_deserialize = mock.Mock(side_effect=[mock_thread_1, mock_thread_2, mock_thread_3])
         mock_deserialize = mock.Mock()
         mock_entity_factory = mock.Mock()
+        mock_entity_factory.deserialize_thread_member.side_effect = [mock_member_1, mock_member_2, mock_member_3]
         mock_request = mock.AsyncMock(
             return_value={
                 "threads": [mock_payload_1, mock_payload_2, mock_payload_3],
                 "members": [mock_member_payload_3, mock_member_payload_1, mock_member_payload_2],
-                "has_more": True,
+                "has_more": False,
             }
         )
         mock_route = mock.Mock()
@@ -603,58 +647,20 @@ class TestGuildThreadIterator:
             before_is_timestamp=False,
         )
 
-        result = await thread_iterator._next_chunk()
+        result = await thread_iterator
 
-        assert result
-        assert thread_iterator._has_more is True
-        assert thread_iterator._next_before == "6576234"
-        mock_request.assert_awaited_once_with(compiled_route=mock_route, query={"limit": "100"})
-        mock_deserialize.assert_not_called()
-        mock_entity_factory.deserialize_thread_member.assert_not_called()
-
-    async def test__next_chunk_when_finished(self):
-        mock_deserialize = mock.Mock()
-        mock_entity_factory = mock.Mock()
-        mock_request = mock.AsyncMock()
-        thread_iterator = special_endpoints.GuildThreadIterator(
-            mock_deserialize,
-            mock_entity_factory,
-            mock_request,
-            mock.Mock(),
-            undefined.UNDEFINED,
-            before_is_timestamp=False,
+        assert result == [mock_thread_1, mock_thread_2, mock_thread_3]
+        mock_entity_factory.deserialize_thread_member.assert_has_calls(
+            [mock.call(mock_member_payload_1), mock.call(mock_member_payload_2), mock.call(mock_member_payload_3)]
         )
-        thread_iterator._has_more = False
-
-        result = await thread_iterator._next_chunk()
-
-        assert result is None
-        mock_deserialize.assert_not_called()
-        mock_entity_factory.deserialize_thread_member.assert_not_called()
-        mock_request.assert_not_called()
-
-    async def test__next_chunk_when_request_returns_an_empty_resource(self):
-        mock_deserialize = mock.Mock()
-        mock_entity_factory = mock.Mock()
-        mock_request = mock.AsyncMock(return_value={"threads": [], "members": [], "has_more": False})
-        mock_route = mock.Mock()
-        thread_iterator = special_endpoints.GuildThreadIterator(
-            mock_deserialize,
-            mock_entity_factory,
-            mock_request,
-            mock_route,
-            undefined.UNDEFINED,
-            before_is_timestamp=False,
-        )
-        thread_iterator._has_more = True
-
-        result = await thread_iterator._next_chunk()
-
-        assert result is None
-        assert thread_iterator._has_more is False
-        mock_deserialize.assert_not_called()
-        mock_entity_factory.deserialize_thread_member.assert_not_called()
         mock_request.assert_awaited_once_with(compiled_route=mock_route, query={"limit": "100"})
+        mock_deserialize.assert_has_calls(
+            [
+                mock.call(mock_payload_1, member=mock_member_1),
+                mock.call(mock_payload_2, member=mock_member_2),
+                mock.call(mock_payload_3, member=mock_member_3),
+            ]
+        )
 
 
 class TestInteractionDeferredBuilder:
@@ -932,7 +938,12 @@ class TestSlashCommandBuilder:
         mock_entity_factory = mock.Mock()
         mock_option = object()
         builder = (
-            special_endpoints.SlashCommandBuilder("we are number", "one")
+            special_endpoints.SlashCommandBuilder(
+                "we are number",
+                "one",
+                name_localizations={locales.Locale.TR: "merhaba"},
+                description_localizations={locales.Locale.TR: "bir"},
+            )
             .add_option(mock_option)
             .set_id(3412312)
             .set_default_member_permissions(permissions.Permissions.ADMINISTRATOR)
@@ -950,20 +961,32 @@ class TestSlashCommandBuilder:
             "default_member_permissions": 8,
             "options": [mock_entity_factory.serialize_command_option.return_value],
             "id": "3412312",
+            "name_localizations": {locales.Locale.TR: "merhaba"},
+            "description_localizations": {locales.Locale.TR: "bir"},
         }
 
     def test_build_without_optional_data(self):
-        builder = special_endpoints.SlashCommandBuilder("we are numberr", "oner")
+        builder = special_endpoints.SlashCommandBuilder("we are number", "oner")
 
         result = builder.build(mock.Mock())
 
-        assert result == {"type": 1, "name": "we are numberr", "description": "oner", "options": []}
+        assert result == {
+            "type": 1,
+            "name": "we are number",
+            "description": "oner",
+            "options": [],
+            "name_localizations": {},
+            "description_localizations": {},
+        }
 
     @pytest.mark.asyncio()
     async def test_create(self):
         builder = (
             special_endpoints.SlashCommandBuilder("we are number", "one")
             .add_option(mock.Mock())
+            .set_id(3412312)
+            .set_name_localizations({locales.Locale.TR: "sayı"})
+            .set_description_localizations({locales.Locale.TR: "bir"})
             .set_default_member_permissions(permissions.Permissions.BAN_MEMBERS)
             .set_is_dm_enabled(True)
         )
@@ -978,6 +1001,8 @@ class TestSlashCommandBuilder:
             builder.description,
             guild=undefined.UNDEFINED,
             options=builder.options,
+            name_localizations={locales.Locale.TR: "sayı"},
+            description_localizations={locales.Locale.TR: "bir"},
             default_member_permissions=permissions.Permissions.BAN_MEMBERS,
             dm_enabled=True,
         )
@@ -991,6 +1016,9 @@ class TestSlashCommandBuilder:
         )
         mock_rest = mock.AsyncMock()
 
+        builder.set_name_localizations({locales.Locale.TR: "sayı"})
+        builder.set_description_localizations({locales.Locale.TR: "bir"})
+
         result = await builder.create(mock_rest, 54455445, guild=54123123321)
 
         assert result is mock_rest.create_slash_command.return_value
@@ -1000,6 +1028,8 @@ class TestSlashCommandBuilder:
             builder.description,
             guild=54123123321,
             options=builder.options,
+            name_localizations={locales.Locale.TR: "sayı"},
+            description_localizations={locales.Locale.TR: "bir"},
             default_member_permissions=permissions.Permissions.BAN_MEMBERS,
             dm_enabled=True,
         )
@@ -1008,8 +1038,12 @@ class TestSlashCommandBuilder:
 class TestContextMenuBuilder:
     def test_build_with_optional_data(self):
         builder = (
-            special_endpoints.ContextMenuCommandBuilder(commands.CommandType.USER, "we are number")
+            special_endpoints.ContextMenuCommandBuilder(
+                commands.CommandType.USER,
+                "we are number",
+            )
             .set_id(3412312)
+            .set_name_localizations({locales.Locale.TR: "merhaba"})
             .set_default_member_permissions(permissions.Permissions.ADMINISTRATOR)
             .set_is_dm_enabled(True)
         )
@@ -1022,6 +1056,7 @@ class TestContextMenuBuilder:
             "dm_permission": True,
             "default_member_permissions": 8,
             "id": "3412312",
+            "name_localizations": {locales.Locale.TR: "merhaba"},
         }
 
     def test_build_without_optional_data(self):
@@ -1029,13 +1064,14 @@ class TestContextMenuBuilder:
 
         result = builder.build(mock.Mock())
 
-        assert result == {"type": 3, "name": "nameeeee"}
+        assert result == {"type": 3, "name": "nameeeee", "name_localizations": {}}
 
     @pytest.mark.asyncio()
     async def test_create(self):
         builder = (
             special_endpoints.ContextMenuCommandBuilder(commands.CommandType.USER, "we are number")
             .set_default_member_permissions(permissions.Permissions.BAN_MEMBERS)
+            .set_name_localizations({"meow": "nyan"})
             .set_is_dm_enabled(True)
         )
         mock_rest = mock.AsyncMock()
@@ -1049,6 +1085,7 @@ class TestContextMenuBuilder:
             builder.name,
             guild=undefined.UNDEFINED,
             default_member_permissions=permissions.Permissions.BAN_MEMBERS,
+            name_localizations={"meow": "nyan"},
             dm_enabled=True,
         )
 
@@ -1057,6 +1094,7 @@ class TestContextMenuBuilder:
         builder = (
             special_endpoints.ContextMenuCommandBuilder(commands.CommandType.USER, "we are number")
             .set_default_member_permissions(permissions.Permissions.BAN_MEMBERS)
+            .set_name_localizations({"en-ghibli": "meow"})
             .set_is_dm_enabled(True)
         )
         mock_rest = mock.AsyncMock()
@@ -1070,6 +1108,7 @@ class TestContextMenuBuilder:
             builder.name,
             guild=765234123,
             default_member_permissions=permissions.Permissions.BAN_MEMBERS,
+            name_localizations={"en-ghibli": "meow"},
             dm_enabled=True,
         )
 

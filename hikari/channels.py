@@ -50,7 +50,7 @@ __all__: typing.Sequence[str] = (
     "WebhookChannelT",
     "WebhookChannelTypes",
     "ThreadMember",
-]
+)
 
 import typing
 
@@ -288,6 +288,7 @@ class PermissionOverwrite:
 
     ```py
     overwrite = PermissionOverwrite(
+        id=163979124820541440,
         type=PermissionOverwriteType.MEMBER,
         allow=(
             Permissions.VIEW_CHANNEL
@@ -346,6 +347,22 @@ class PartialChannel(snowflakes.Unique):
 
     type: typing.Union[ChannelType, int] = attr.field(eq=False, hash=False, repr=True)
     """The channel's type."""
+
+    @property
+    def mention(self) -> str:
+        """Return a raw mention string for the channel.
+
+        !!! note
+            There are platform specific inconsistencies with mentions of
+            GuildCategories, GroupDMChannels and DMChannels showing
+            the correct name but not being interactable.
+
+        Returns
+        -------
+        builtins.str
+            The mention string to use.
+        """
+        return f"<#{self.id}>"
 
     def __str__(self) -> str:
         return self.name if self.name is not None else f"Unnamed {self.__class__.__name__} ID {self.id}"
@@ -949,21 +966,6 @@ class GuildChannel(PartialChannel):
     """
 
     @property
-    def mention(self) -> str:
-        """Return a raw mention string for the guild channel.
-
-        !!! note
-            As of writing, GuildCategory channels are a special case
-            for this and mentions of them will not resolve as clickable.
-
-        Returns
-        -------
-        builtins.str
-            The mention string to use.
-        """
-        return f"<#{self.id}>"
-
-    @property
     def shard_id(self) -> typing.Optional[int]:
         """Return the shard ID for the shard.
 
@@ -1065,7 +1067,7 @@ class GuildChannel(PartialChannel):
             If provided, the new permission overwrites for the channel.
         parent_category : hikari.undefined.UndefinedOr[hikari.snowflakes.SnowflakeishOr[hikari.channels.GuildCategory]]
             If provided, the new guild category for the channel.
-        default_auto_archive_duration : hikari.undefined.UndefinedOr[hikari.time.Intervalish]
+        default_auto_archive_duration : hikari.undefined.UndefinedOr[hikari.internal.time.Intervalish]
             If provided, the auto archive duration Discord's end user client
             should default to when creating threads in this channel.
 
@@ -1170,9 +1172,9 @@ class PermissibleGuildChannel(GuildChannel):
             If provided, the type of the target to update. If unset, will attempt to get
             the type from `target`.
         allow : hikari.undefined.UndefinedOr[hikari.permissions.Permissions]
-            If provided, the new vale of all allowed permissions.
+            If provided, the new value of all allowed permissions.
         deny : hikari.undefined.UndefinedOr[hikari.permissions.Permissions]
-            If provided, the new vale of all disallowed permissions.
+            If provided, the new value of all disallowed permissions.
         reason : hikari.undefined.UndefinedOr[builtins.str]
             If provided, the reason that will be recorded in the audit logs.
             Maximum of 512 characters.
@@ -1209,11 +1211,9 @@ class PermissibleGuildChannel(GuildChannel):
             assert not isinstance(
                 target, int
             ), "Cannot determine the type of the target to update. Try specifying 'target_type' manually."
-            return await self.app.rest.edit_permission_overwrites(
-                self.id, target, allow=allow, deny=deny, reason=reason
-            )
+            return await self.app.rest.edit_permission_overwrite(self.id, target, allow=allow, deny=deny, reason=reason)
 
-        return await self.app.rest.edit_permission_overwrites(
+        return await self.app.rest.edit_permission_overwrite(
             self.id, typing.cast(int, target), target_type=target_type, allow=allow, deny=deny, reason=reason
         )
 
@@ -1347,7 +1347,7 @@ class GuildNewsChannel(PermissibleGuildChannel, TextableGuildChannel):
 
 
 @attr.define(hash=True, kw_only=True, weakref_slot=False)
-class GuildVoiceChannel(PermissibleGuildChannel):
+class GuildVoiceChannel(PermissibleGuildChannel, TextableGuildChannel):
     """Represents a voice channel."""
 
     bitrate: int = attr.field(eq=False, hash=False, repr=True)
@@ -1369,6 +1369,14 @@ class GuildVoiceChannel(PermissibleGuildChannel):
 
     video_quality_mode: typing.Union[VideoQualityMode, int] = attr.field(eq=False, hash=False, repr=False)
     """The video quality mode for the voice channel."""
+
+    last_message_id: typing.Optional[snowflakes.Snowflake] = attr.field(eq=False, hash=False, repr=False)
+    """The ID of the last message sent in this channel.
+
+    !!! warning
+        This might point to an invalid or deleted message. Do not assume that
+        this will always be valid.
+    """
 
 
 @attr.define(hash=True, kw_only=True, weakref_slot=False)
@@ -1476,7 +1484,7 @@ class GuildThreadChannel(TextableGuildChannel):
     """Approximate number of messages in the thread channel.
 
     !!! warning
-        This stops counting at 50.
+        This stops counting at 50 for threads created before 2022/06/01.
     """
 
     approximate_member_count: int = attr.field(eq=False, hash=False, repr=True)

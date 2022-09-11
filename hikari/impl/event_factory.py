@@ -61,6 +61,7 @@ if typing.TYPE_CHECKING:
     from hikari import invites as invite_models
     from hikari import messages as messages_models
     from hikari import presences as presences_models
+    from hikari import stickers as sticker_models
     from hikari import traits
     from hikari import voices as voices_models
     from hikari.api import shard as gateway_shard
@@ -173,16 +174,6 @@ class EventFactoryImpl(event_factory.EventFactory):
             guild_id=snowflakes.Snowflake(payload["guild_id"]),
             parent_id=snowflakes.Snowflake(payload["parent_id"]),
             type=channel_models.ChannelType(payload["type"]),
-        )
-
-    def deserialize_own_thread_member_update_event(
-        self, shard: gateway_shard.GatewayShard, payload: data_binding.JSONObject
-    ) -> channel_events.OwnThreadMemberUpdateEvent:
-        return channel_events.OwnThreadMemberUpdateEvent(
-            app=self._app,
-            shard=shard,
-            member=self._app.entity_factory.deserialize_thread_member(payload),
-            guild_id=snowflakes.Snowflake(payload["guild_id"]),
         )
 
     def deserialize_thread_members_update_event(
@@ -323,6 +314,7 @@ class EventFactoryImpl(event_factory.EventFactory):
             channels=guild_information.channels(),
             members=guild_information.members(),
             presences=guild_information.presences(),
+            stickers=guild_information.stickers(),
             threads=guild_information.threads(),
             voice_states=guild_information.voice_states(),
         )
@@ -339,6 +331,7 @@ class EventFactoryImpl(event_factory.EventFactory):
             channels=guild_information.channels(),
             members=guild_information.members(),
             presences=guild_information.presences(),
+            stickers=guild_information.stickers(),
             threads=guild_information.threads(),
             voice_states=guild_information.voice_states(),
         )
@@ -356,6 +349,7 @@ class EventFactoryImpl(event_factory.EventFactory):
             guild=guild_information.guild(),
             emojis=guild_information.emojis(),
             roles=guild_information.roles(),
+            stickers=guild_information.stickers(),
             old_guild=old_guild,
         )
 
@@ -409,6 +403,19 @@ class EventFactoryImpl(event_factory.EventFactory):
         ]
         return guild_events.EmojisUpdateEvent(
             app=self._app, shard=shard, guild_id=guild_id, emojis=emojis, old_emojis=old_emojis
+        )
+
+    def deserialize_guild_stickers_update_event(
+        self,
+        shard: gateway_shard.GatewayShard,
+        payload: data_binding.JSONObject,
+        *,
+        old_stickers: typing.Optional[typing.Sequence[sticker_models.GuildSticker]] = None,
+    ) -> guild_events.StickersUpdateEvent:
+        guild_id = snowflakes.Snowflake(payload["guild_id"])
+        stickers = [self._app.entity_factory.deserialize_guild_sticker(sticker) for sticker in payload["stickers"]]
+        return guild_events.StickersUpdateEvent(
+            app=self._app, shard=shard, guild_id=guild_id, stickers=stickers, old_stickers=old_stickers
         )
 
     def deserialize_integration_create_event(

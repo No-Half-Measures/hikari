@@ -111,6 +111,9 @@ class TestPartialChannel:
         model.name = None
         assert str(model) == "Unnamed PartialChannel ID 1234567"
 
+    def test_mention_property(self, model):
+        assert model.mention == "<#1234567>"
+
     @pytest.mark.asyncio()
     async def test_delete(self, model):
         model.app.rest.delete_channel = mock.AsyncMock()
@@ -332,8 +335,67 @@ class TestGuildChannel:
         model.app.shard_count = 3
         assert model.shard_id == 2
 
-    def test_mention_property(self, model):
-        assert model.mention == "<#69420>"
+    @pytest.mark.asyncio()
+    async def test_fetch_guild(self, model):
+        model.app.rest.fetch_guild = mock.AsyncMock()
+
+        assert await model.fetch_guild() is model.app.rest.fetch_guild.return_value
+
+        model.app.rest.fetch_guild.assert_awaited_once_with(123456789)
+
+    @pytest.mark.asyncio()
+    async def test_edit(self, model):
+        model.app.rest.edit_channel = mock.AsyncMock()
+
+        result = await model.edit(
+            name="Supa fast boike",
+            bitrate=420,
+            reason="left right",
+            default_auto_archive_duration=123312,
+            position=4423,
+            topic="hi",
+            nsfw=True,
+            video_quality_mode=channels.VideoQualityMode.AUTO,
+            user_limit=123321,
+            rate_limit_per_user=54123123,
+            region="us-west",
+            parent_category=341123123123,
+            permission_overwrites={123: "123"},
+        )
+
+        assert result is model.app.rest.edit_channel.return_value
+        model.app.rest.edit_channel.assert_awaited_once_with(
+            69420,
+            name="Supa fast boike",
+            position=4423,
+            topic="hi",
+            nsfw=True,
+            bitrate=420,
+            video_quality_mode=channels.VideoQualityMode.AUTO,
+            user_limit=123321,
+            rate_limit_per_user=54123123,
+            region="us-west",
+            permission_overwrites={123: "123"},
+            parent_category=341123123123,
+            default_auto_archive_duration=123312,
+            reason="left right",
+        )
+
+
+class TestPermissibleGuildChannel:
+    @pytest.fixture()
+    def model(self, mock_app):
+        return hikari_test_helpers.mock_class_namespace(channels.PermissibleGuildChannel)(
+            app=mock_app,
+            id=snowflakes.Snowflake(69420),
+            name="foo1",
+            type=channels.ChannelType.GUILD_VOICE,
+            guild_id=snowflakes.Snowflake(123456789),
+            is_nsfw=True,
+            parent_id=None,
+            position=54,
+            permission_overwrites=[],
+        )
 
     @pytest.mark.asyncio()
     async def test_fetch_guild(self, model):
@@ -399,7 +461,7 @@ class TestPermissibleGuildChannel:
 
     @pytest.mark.asyncio()
     async def test_edit_overwrite(self, model):
-        model.app.rest.edit_permission_overwrites = mock.AsyncMock()
+        model.app.rest.edit_permission_overwrite = mock.AsyncMock()
         user = mock.Mock(users.PartialUser)
         await model.edit_overwrite(
             333,
@@ -409,7 +471,7 @@ class TestPermissibleGuildChannel:
             reason="vrooom vroom",
         )
 
-        model.app.rest.edit_permission_overwrites.assert_called_once_with(
+        model.app.rest.edit_permission_overwrite.assert_called_once_with(
             69420,
             333,
             target_type=user,
@@ -420,13 +482,13 @@ class TestPermissibleGuildChannel:
 
     @pytest.mark.asyncio()
     async def test_edit_overwrite_target_type_none(self, model):
-        model.app.rest.edit_permission_overwrites = mock.AsyncMock()
+        model.app.rest.edit_permission_overwrite = mock.AsyncMock()
         user = mock.Mock(users.PartialUser)
         await model.edit_overwrite(
             user, allow=permissions.Permissions.BAN_MEMBERS, deny=permissions.Permissions.CONNECT, reason="vrooom vroom"
         )
 
-        model.app.rest.edit_permission_overwrites.assert_called_once_with(
+        model.app.rest.edit_permission_overwrite.assert_called_once_with(
             69420,
             user,
             allow=permissions.Permissions.BAN_MEMBERS,
