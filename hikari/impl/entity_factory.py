@@ -1297,6 +1297,10 @@ class EntityFactoryImpl(entity_factory.EntityFactory):
 
         if dm_channel_model := self._dm_channel_type_mapping.get(channel_type):
             return dm_channel_model(payload)
+        
+        if channel_type == channel_type.GUILD_FORUM:
+            if guild_channel_model := self._guild_channel_type_mapping.get(channel_type.GUILD_TEXT):
+                return guild_channel_model(payload, guild_id=guild_id)
 
         _LOGGER.debug(f"Unrecognised channel type {channel_type}")
         raise errors.UnrecognisedEntityError(f"Unrecognised channel type {channel_type}")

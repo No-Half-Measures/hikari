@@ -119,6 +119,8 @@ class ChannelType(int, enums.Enum):
     GUILD_STAGE = 13
     """A few to many voice channel for hosting events."""
 
+    GUILD_FORUM = 15
+
 
 @typing.final
 class VideoQualityMode(int, enums.Enum):
